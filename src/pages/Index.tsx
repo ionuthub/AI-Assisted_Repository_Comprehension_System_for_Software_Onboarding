@@ -217,6 +217,7 @@ const Index = () => {
       score: item.score,
       excerpt: item.excerpt,
       startLine: item.startLine,
+      retrievalReason: item.reason,
       endLine: item.endLine,
       totalLines: item.totalLines,
       omittedLines: item.omittedLines,

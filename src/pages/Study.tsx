@@ -46,8 +46,8 @@ type ConditionResult = {
   };
   tasks: TaskResult[];
   nasaTlx: {
-    responses: CompletedNasaResponses;
-    rawScore: number;
+    responses: NasaResponses;
+    rawScore: number | null;
   };
 };
 
@@ -237,7 +237,6 @@ export default function Study() {
   const currentTask = repository?.tasks[taskIndex] ?? null;
   const nasaComplete = NASA_DIMENSIONS.every((dimension) => nasaResponses[dimension.key] !== null);
   const susComplete = susResponses.every((value) => value !== null);
-  const feedbackComplete = [helped, difficult, preferred].every((value) => value.trim().length > 0);
 
   const susScore = useMemo(() => {
     if (!susComplete) return null;
@@ -289,7 +288,7 @@ export default function Study() {
   };
 
   const submitNasa = () => {
-    if (!assignment || !repository || !nasaComplete) return;
+    if (!assignment || !repository) return;
     const completedResponses = nasaResponses as CompletedNasaResponses;
     const result: ConditionResult = {
       order: conditionIndex + 1,
@@ -302,7 +301,7 @@ export default function Study() {
       tasks: currentTaskResults,
       nasaTlx: {
         responses: completedResponses,
-        rawScore: calculateRawNasaTlx(completedResponses),
+        rawScore: nasaComplete ? calculateRawNasaTlx(completedResponses) : null,
       },
     };
 
@@ -320,11 +319,11 @@ export default function Study() {
   };
 
   const exportSession = () => {
-    if (!sessionStartedAt || !sequenceId || susScore === null || !feedbackComplete || conditionResults.length !== 2) return;
+    if (!sessionStartedAt || !sequenceId || conditionResults.length !== 2) return;
     const completedAt = new Date().toISOString();
     const payload = {
-      schemaVersion: 4,
-      protocolVersion: "comparative-v1",
+      schemaVersion: 5,
+      protocolVersion: "comparative-v2-optional-responses",
       participant: {
         id: participantId.trim(),
         eligibility: "current-year-3-computer-science-student",
@@ -384,6 +383,19 @@ export default function Study() {
           Compare manual repository inspection with Codemap. Use only the study ID provided by the researcher; do not enter your name or email address.
         </p>
       </div>
+
+      {phase !== "complete" && (
+        <aside className="mb-6 space-y-3 rounded-lg border border-border p-4">
+          <p className="text-body text-muted-foreground">
+            Taking part is voluntary. You may skip any question or stop at any time.
+            Stopping clears this session without exporting it. It does not delete a file already exported;
+            contact the researcher about withdrawal of an exported record.
+          </p>
+          <Button variant="outline" onClick={() => {
+            if (window.confirm("Stop participating and discard this unexported session?")) resetSession();
+          }}>Stop participating and discard session</Button>
+        </aside>
+      )}
 
       {phase === "setup" && (
         <section className="space-y-6 rounded-lg border border-border bg-card p-6">
@@ -502,7 +514,7 @@ export default function Study() {
           <div>
             <h2 className="text-section font-semibold text-foreground">NASA-TLX</h2>
             <p className="mt-2 text-body text-muted-foreground">
-              Rate the workload you experienced during the {assignment.condition === "manual" ? "manual" : "Codemap"} condition. Select a value from 0 to 100 for each scale.
+              Rate the workload you experienced during the {assignment.condition === "manual" ? "manual" : "Codemap"} condition. Each response is optional. A score is calculated only if all six scales are answered.
             </p>
           </div>
 
@@ -518,12 +530,12 @@ export default function Study() {
                 onChange={(event) =>
                   setNasaResponses((responses) => ({
                     ...responses,
-                    [dimension.key]: Number(event.target.value),
+                    [dimension.key]: event.target.value === "" ? null : Number(event.target.value),
                   }))
                 }
                 className="h-10 w-full rounded-md border border-control-border bg-input px-3 text-ui text-foreground focus-ring"
               >
-                <option value="">Select one</option>
+                <option value="">Prefer not to answer</option>
                 {NASA_VALUES.map((value) => (
                   <option key={value} value={value}>{value}</option>
                 ))}
@@ -531,7 +543,7 @@ export default function Study() {
             </div>
           ))}
 
-          <Button onClick={submitNasa} disabled={!nasaComplete}>
+          <Button onClick={submitNasa}>
             {conditionIndex === 0 ? "Continue to second condition" : "Continue"}
           </Button>
         </section>
@@ -542,7 +554,7 @@ export default function Study() {
           <div>
             <h2 className="text-section font-semibold text-foreground">System Usability Scale</h2>
             <p className="mt-2 text-body text-muted-foreground">
-              Thinking only about Codemap, select one response from 1 (strongly disagree) to 5 (strongly agree).
+              Thinking only about Codemap, select one response from 1 (strongly disagree) to 5 (strongly agree). Each response is optional. A score is calculated only if all ten items are answered.
             </p>
           </div>
 
@@ -552,6 +564,11 @@ export default function Study() {
                 {index + 1}. {item}
               </legend>
               <div className="flex flex-wrap items-center gap-4">
+                <label className="flex items-center gap-2 text-ui text-muted-foreground">
+                  <input type="radio" name={`sus-${index}`} checked={susResponses[index] === null}
+                    onChange={() => setSusResponses((responses) => responses.map((response, responseIndex) => responseIndex === index ? null : response))} />
+                  Prefer not to answer
+                </label>
                 {[1, 2, 3, 4, 5].map((value) => (
                   <label key={value} className="flex items-center gap-2 text-ui text-muted-foreground">
                     <input
@@ -572,7 +589,7 @@ export default function Study() {
             </fieldset>
           ))}
 
-          <Button onClick={() => setPhase("feedback")} disabled={!susComplete}>
+          <Button onClick={() => setPhase("feedback")}>
             Continue
           </Button>
         </section>
@@ -582,7 +599,7 @@ export default function Study() {
         <section className="space-y-6 rounded-lg border border-border bg-card p-6">
           <div>
             <h2 className="text-section font-semibold text-foreground">Final questions</h2>
-            <p className="mt-2 text-body text-muted-foreground">Please answer all three questions briefly.</p>
+            <p className="mt-2 text-body text-muted-foreground">These questions are optional. Leave any question blank if you prefer not to answer.</p>
           </div>
 
           <div className="space-y-2">
@@ -598,7 +615,7 @@ export default function Study() {
             <Textarea id="preferred" value={preferred} onChange={(event) => setPreferred(event.target.value)} rows={4} />
           </div>
 
-          <Button onClick={exportSession} disabled={!feedbackComplete}>
+          <Button onClick={exportSession}>
             Export participant data
           </Button>
         </section>

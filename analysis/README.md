@@ -21,6 +21,17 @@ Final gate outcomes are recorded in `study/marking.*.md` and `study/final-result
 
 ## Reproduce the participant analysis
 
+The retained study exports use schema 4, `comparative-v1`. The subsequent
+participant-choice correction uses schema 5, `comparative-v2-optional-responses`:
+NASA-TLX and SUS items may be null and their score is null unless every item is
+answered; optional feedback may be empty. The analysis below intentionally accepts
+only the completed study's schema 4 exports. It rejects schema 5 rather than
+silently treating missing answers as zero or mixing protocols. Any future study
+must specify missing-data handling and analysis denominators before analysis.
+Stopping participation clears the unexported browser session; it does not revoke
+an already downloaded record. These interface changes do not alter retained data
+or retrospectively describe the controls used during the completed study.
+
 Use Python 3.11 or later in an isolated environment, with the versions in
 `requirements-participants.txt`. Keep the twelve `study-Pxx-comparative.json`
 exports, completed marking CSV and generated outputs outside this public

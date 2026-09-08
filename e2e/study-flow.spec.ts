@@ -11,6 +11,48 @@ const NASA_LABELS = [
 ];
 
 test.describe('participant comparative study runner', () => {
+  test('allows questionnaires and feedback to be declined without inventing scores', async ({ page }) => {
+    await page.goto('/study');
+    await page.getByLabel('Participant ID').fill('P01');
+    await page.getByRole('button', { name: 'Prepare session' }).click();
+    for (let condition = 0; condition < 2; condition++) {
+      await page.getByRole('button', { name: 'Begin timed tasks' }).click();
+      for (let task = 0; task < 4; task++) await page.getByRole('button', { name: 'Unable to answer / skip' }).click();
+      await page.getByLabel('Mental Demand').selectOption('50');
+      await page.getByLabel('Mental Demand').selectOption('');
+      await page.getByRole('button', { name: condition === 0 ? 'Continue to second condition' : 'Continue', exact: true }).click();
+    }
+    await page.locator('input[name="sus-0"][value="3"]').check();
+    await page.getByRole('group').first().getByLabel('Prefer not to answer').check();
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+    const pending = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Export participant data' }).click();
+    const download = await pending;
+    const data = JSON.parse(await readFile((await download.path())!, 'utf8'));
+    expect(data.schemaVersion).toBe(5);
+    for (const condition of data.conditions) {
+      expect(condition.nasaTlx.rawScore).toBeNull();
+      expect(Object.values(condition.nasaTlx.responses)).toEqual(Array(6).fill(null));
+    }
+    expect(data.sus.responses).toEqual(Array(10).fill(null));
+    expect(data.sus.score).toBeNull();
+    expect(Object.values(data.feedback)).toEqual(['', '', '']);
+  });
+
+  test('can cancel stopping or discard the unexported session', async ({ page }) => {
+    await page.goto('/study');
+    await page.getByLabel('Participant ID').fill('P01');
+    await page.getByRole('button', { name: 'Prepare session' }).click();
+    await page.getByRole('button', { name: 'Begin timed tasks' }).click();
+    await page.getByLabel('Your answer').fill('Private draft');
+    page.once('dialog', dialog => dialog.dismiss());
+    await page.getByRole('button', { name: 'Stop participating and discard session' }).click();
+    await expect(page.getByLabel('Your answer')).toHaveValue('Private draft');
+    page.once('dialog', dialog => dialog.accept());
+    await page.getByRole('button', { name: 'Stop participating and discard session' }).click();
+    await expect(page.getByLabel('Participant ID')).toHaveValue('');
+    await expect(page.getByLabel('Your answer')).toHaveCount(0);
+  });
   test('captures manual and Codemap conditions, NASA-TLX, SUS, feedback and export', async ({ page }) => {
     await page.goto('/study');
 
@@ -87,8 +129,8 @@ test.describe('participant comparative study runner', () => {
     const exportPath = await download.path();
     expect(exportPath).not.toBeNull();
     const data = JSON.parse(await readFile(exportPath!, 'utf8'));
-    expect(data.schemaVersion).toBe(4);
-    expect(data.protocolVersion).toBe('comparative-v1');
+    expect(data.schemaVersion).toBe(5);
+    expect(data.protocolVersion).toBe('comparative-v2-optional-responses');
     expect(data.participant.id).toBe('P01');
     expect(data.assignment.sequenceId).toBe('A');
     expect(data.conditions.map((condition: { condition: string; repository: { name: string } }) =>

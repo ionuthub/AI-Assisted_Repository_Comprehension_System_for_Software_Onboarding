@@ -19,6 +19,15 @@ const evidence = (
 });
 
 describe('EvidencePanel', () => {
+  it.each([
+    ['direct', 'Direct match'], ['symbol', 'Symbol match'],
+    ['structural', 'Related by imports'], ['entry', 'Likely entry point'],
+    ['repository', 'Repository context'], [undefined, 'Retrieval match'],
+  ] as const)('labels retrieval reason %s', (reason, label) => {
+    render(<EvidencePanel evidence={[evidence('src/a.ts', 0.7, reason)]} unverifiedMentions={[]} isLoading={false} />);
+    expect(screen.getByText(label)).toBeInTheDocument();
+    expect(screen.queryByText('Hybrid match')).not.toBeInTheDocument();
+  });
   it('reports what was retrieved rather than judging the answer', () => {
     render(
       <EvidencePanel
