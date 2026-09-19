@@ -51,7 +51,7 @@ React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui, TF-IDF retrieval, Google Ge
 Requires Node.js 20 or 22, npm and a Gemini API key.
 
 ```bash
-git clone https://github.com/ionuthub/AI-Assisted_Repository_Comprehension_System_for_Software_Onboarding_and_Maintenance.git
+git clone https://github.com/ionuthub/AI-Assisted_Repository_Comprehension_System_for_Software_Onboarding.git
 npm install
 npm run dev
 ```
