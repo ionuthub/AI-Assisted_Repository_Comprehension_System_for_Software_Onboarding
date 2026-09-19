@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 
 const NASA_LABELS = [
@@ -10,6 +11,48 @@ const NASA_LABELS = [
 ];
 
 test.describe('participant comparative study runner', () => {
+  test('allows questionnaires and feedback to be declined without inventing scores', async ({ page }) => {
+    await page.goto('/study');
+    await page.getByLabel('Participant ID').fill('P01');
+    await page.getByRole('button', { name: 'Prepare session' }).click();
+    for (let condition = 0; condition < 2; condition++) {
+      await page.getByRole('button', { name: 'Begin timed tasks' }).click();
+      for (let task = 0; task < 4; task++) await page.getByRole('button', { name: 'Unable to answer / skip' }).click();
+      await page.getByLabel('Mental Demand').selectOption('50');
+      await page.getByLabel('Mental Demand').selectOption('');
+      await page.getByRole('button', { name: condition === 0 ? 'Continue to second condition' : 'Continue', exact: true }).click();
+    }
+    await page.locator('input[name="sus-0"][value="3"]').check();
+    await page.getByRole('group').first().getByLabel('Prefer not to answer').check();
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+    const pending = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Export participant data' }).click();
+    const download = await pending;
+    const data = JSON.parse(await readFile((await download.path())!, 'utf8'));
+    expect(data.schemaVersion).toBe(5);
+    for (const condition of data.conditions) {
+      expect(condition.nasaTlx.rawScore).toBeNull();
+      expect(Object.values(condition.nasaTlx.responses)).toEqual(Array(6).fill(null));
+    }
+    expect(data.sus.responses).toEqual(Array(10).fill(null));
+    expect(data.sus.score).toBeNull();
+    expect(Object.values(data.feedback)).toEqual(['', '', '']);
+  });
+
+  test('can cancel stopping or discard the unexported session', async ({ page }) => {
+    await page.goto('/study');
+    await page.getByLabel('Participant ID').fill('P01');
+    await page.getByRole('button', { name: 'Prepare session' }).click();
+    await page.getByRole('button', { name: 'Begin timed tasks' }).click();
+    await page.getByLabel('Your answer').fill('Private draft');
+    page.once('dialog', dialog => dialog.dismiss());
+    await page.getByRole('button', { name: 'Stop participating and discard session' }).click();
+    await expect(page.getByLabel('Your answer')).toHaveValue('Private draft');
+    page.once('dialog', dialog => dialog.accept());
+    await page.getByRole('button', { name: 'Stop participating and discard session' }).click();
+    await expect(page.getByLabel('Participant ID')).toHaveValue('');
+    await expect(page.getByLabel('Your answer')).toHaveCount(0);
+  });
   test('captures manual and Codemap conditions, NASA-TLX, SUS, feedback and export', async ({ page }) => {
     await page.goto('/study');
 
@@ -22,7 +65,7 @@ test.describe('participant comparative study runner', () => {
     await page.getByRole('button', { name: 'Prepare session' }).click();
 
     await expect(page.getByRole('heading', { name: 'Manual repository inspection' })).toBeVisible();
-    await expect(page.getByText('warehouse-dispatch')).toBeVisible();
+    await expect(page.getByText('warehouse-dispatch', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Begin timed tasks' }).click();
 
     await expect(page.getByText('Manual · Task 1 of 4')).toBeVisible();
@@ -45,7 +88,7 @@ test.describe('participant comparative study runner', () => {
     await page.getByRole('button', { name: 'Continue to second condition' }).click();
 
     await expect(page.getByRole('heading', { name: 'Codemap' })).toBeVisible();
-    await expect(page.getByText('clinic-triage')).toBeVisible();
+    await expect(page.getByText('clinic-triage', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Begin timed tasks' }).click();
 
     for (let task = 1; task <= 4; task += 1) {
@@ -83,6 +126,39 @@ test.describe('participant comparative study runner', () => {
     const download = await downloadPromise;
 
     expect(download.suggestedFilename()).toBe('study-P01-comparative.json');
+    const exportPath = await download.path();
+    expect(exportPath).not.toBeNull();
+    const data = JSON.parse(await readFile(exportPath!, 'utf8'));
+    expect(data.schemaVersion).toBe(5);
+    expect(data.protocolVersion).toBe('comparative-v2-optional-responses');
+    expect(data.participant.id).toBe('P01');
+    expect(data.assignment.sequenceId).toBe('A');
+    expect(data.conditions.map((condition: { condition: string; repository: { name: string } }) =>
+      [condition.condition, condition.repository.name])).toEqual([
+      ['manual', 'warehouse-dispatch'], ['codemap', 'clinic-triage'],
+    ]);
+    for (const condition of data.conditions) {
+      expect(condition.tasks).toHaveLength(4);
+      expect(condition.tasks.map((task: { id: number }) => task.id)).toEqual([1, 2, 3, 4]);
+      expect(condition.nasaTlx.rawScore).toBe(50);
+      expect(Object.values(condition.nasaTlx.responses)).toEqual([50, 50, 50, 50, 50, 50]);
+      for (const task of condition.tasks) {
+        expect(task.durationMs).toBeGreaterThanOrEqual(0);
+        expect(task.durationMs).toBe(Date.parse(task.completedAt) - Date.parse(task.startedAt));
+        expect(task).not.toHaveProperty('correct');
+      }
+    }
+    expect(data.conditions[0].tasks[0].answer).toBe('src/main.tsx renders App and starts the application.');
+    expect(data.conditions[0].tasks.map((task: { completed: boolean }) => task.completed)).toEqual([true, false, true, true]);
+    expect(data.conditions[0].tasks[1].answer).toBe('');
+    expect(data.conditions[1].tasks.map((task: { answer: string; completed: boolean }) => [task.answer, task.completed]))
+      .toEqual([1, 2, 3, 4].map(task => [`Codemap answer ${task}`, true]));
+    expect(data.sus).toEqual({ appliesTo: 'codemap', responses: Array(10).fill(3), score: 50 });
+    expect(data.feedback).toEqual({
+      codemapHelped: 'The repository overview and grounded answers.',
+      codemapDifficult: 'Tracing some cross-file behaviour.',
+      preferredMethodAndWhy: 'Codemap because it reduced the amount of navigation required.',
+    });
     await expect(page.getByRole('heading', { name: 'Session complete' })).toBeVisible();
   });
 });

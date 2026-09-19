@@ -1,6 +1,6 @@
 # Traceability matrix
 
-This table links the core artefact requirements to their main implementation and test evidence.
+This table uses the same FR1–FR12 and NFR1–NFR12 identifiers as `REQUIREMENTS.md` and the dissertation. Test locations identify coverage, not an assertion that every current check passes; run results must be tied to the checked commit.
 
 ## Functional requirements
 
@@ -16,6 +16,8 @@ This table links the core artefact requirements to their main implementation and
 | FR8 | `WorkspaceQAView.tsx` | `WorkspaceQAView.test.tsx` |
 | FR9 | `github.ts`, `CoveragePanel.tsx` | `github.test.ts` |
 | FR10 | `staticAnalysis.ts`, `FileInsightsPanel.tsx`, `CodeViewer.tsx` | `CodeViewer.test.tsx` |
+| FR11 | `src/pages/Study.tsx` | `e2e/basic-flow.spec.ts`, `e2e/study-flow.spec.ts` |
+| FR12 | JSON serialisation and download in `src/pages/Study.tsx` | Participant-export assertions in `e2e/study-flow.spec.ts` |
 
 ## Non-functional requirements
 
@@ -24,14 +26,15 @@ This table links the core artefact requirements to their main implementation and
 | NFR1 | ES2020 build, Vercel | Production build |
 | NFR2 | Limits and recovery in `github.ts` | `github.test.ts` |
 | NFR3 | `semanticSearch.ts` | `score_questions.mjs`, repeatability tooling |
+| NFR4 | `recordMetric` in the project store and `Index.tsx` | Source inspection of repository-analysis and Q&A timing; no latency pass threshold |
 | NFR5 | `api/explain-code.ts` | Source inspection and automated tests |
 | NFR6 | `api/explain-code.ts`, `promptBuilder.ts` | `promptBuilder.test.ts` |
 | NFR7 | Path validation and React escaping | `github.test.ts` |
-| NFR8 | `ErrorBoundary.tsx` | not-found e2e coverage |
+| NFR8 | `ErrorBoundary.tsx`, `Index.tsx`, generation error state | `generationProtocol.test.ts`, `WorkspaceQAView.test.tsx`; full crash recovery is not established by a not-found route test |
 | NFR9 | ARIA and keyboard support | component and e2e tests |
 | NFR10 | Evidence wording | `EvidencePanel.test.tsx` |
-| NFR11 | CI and automated test suite | successful CI at final artefact commit |
-| NFR12 | `LICENSE.md` | public repository |
+| NFR11 | CI and automated test suite | Commit-specific typecheck, lint, unit, build and Playwright results; see `TESTING.md` |
+| NFR12 | `LICENSE.md`, public evaluation records and private participant records | MIT licence and evidence locations in `study/README.md` |
 
 ## Final evaluation evidence
 

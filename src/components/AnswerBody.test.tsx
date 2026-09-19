@@ -20,7 +20,7 @@ describe('AnswerBody', () => {
     const { container } = render(<AnswerBody content={ANSWER} />);
     const tags = Array.from(container.children).map((el) => el.tagName);
     expect(tags).not.toContain('DIV');
-    expect(tags).toEqual(['H3', 'P', 'H4', 'LI', 'LI', 'P']);
+    expect(tags).toEqual(['H3', 'P', 'H4', 'UL', 'P']);
   });
 
   it('renders headings, bullets and paragraphs', () => {
@@ -35,8 +35,22 @@ describe('AnswerBody', () => {
     expect(container.querySelectorAll('p')).toHaveLength(2);
   });
 
-  it('leaves inline bold markers unchanged inside paragraphs', () => {
+  it('renders inline bold markers inside paragraphs', () => {
     const { container } = render(<AnswerBody content={'There are exactly **two** places.'} />);
-    expect(container.textContent).toContain('**two**');
+    expect(container.querySelector('strong')?.textContent).toBe('two');
+  });
+
+  it('renders code, headings and ordered lists without interpreting HTML', () => {
+    const { container } = render(<AnswerBody content={'#### Detail\n3. Use `file.ts`\n4. Check **both**\n```ts\n**literal**\n<img src=x onerror=alert(1)>\n```\n<script>alert(1)</script>'} />);
+    expect(container.querySelector('h4')?.textContent).toBe('Detail');
+    expect(container.querySelector('ol')).toHaveAttribute('start', '3');
+    expect(container.querySelector('li code')?.textContent).toBe('file.ts');
+    expect(container.querySelector('pre code')?.textContent).toContain('**literal**');
+    expect(container.querySelector('script, img')).toBeNull();
+  });
+
+  it('preserves an unfinished code block', () => {
+    const { container } = render(<AnswerBody content={'```ts\nconst x = 1;'} />);
+    expect(container.querySelector('pre')?.textContent).toBe('const x = 1;');
   });
 });
