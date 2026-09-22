@@ -22,6 +22,6 @@ The project uses AI in two ways:
 
 The application, tests and analysis tooling were developed with AI assistance. The accuracy-gate reference answers were also AI-assisted and checked with tools against the complete study repositories. They are therefore described as **tool-verified**. The researcher made the final binary marking decisions.
 
-AI tools also supported literature discovery, report structure, wording and review. Sources used in the dissertation should be checked against the original publications before inclusion.
+AI tools also supported literature discovery, report structure, wording and review. Sources used in the dissertation were checked against the original publications before inclusion.
 
 The researcher remains responsible for project scope, methodological decisions, source verification, final marking, interpretation, limitations and the submitted work. The repository does not claim unaided authorship.
